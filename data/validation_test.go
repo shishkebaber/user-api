@@ -30,7 +30,7 @@ func TestValidation(t *testing.T) {
 	}
 }
 
-func TestProductsToJSON(t *testing.T) {
+func TestToJSON(t *testing.T) {
 	user := []*User{{1, "Roman", "Gavrilov", "shishkebaber", "shishkebaber@gmail.com", "test", "Russia"}}
 
 	b := bytes.NewBufferString("")
