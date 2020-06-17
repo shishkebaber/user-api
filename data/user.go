@@ -1,5 +1,7 @@
 package data
 
+import "golang.org/x/crypto/bcrypt"
+
 type User struct {
 	Id        int    `json:"id"`
 	FirstName string `json:"first-name" validate:"required"`
@@ -13,6 +15,15 @@ type User struct {
 type UserDBI interface {
 	AddUser(user User) error
 	UpdateUser(user User) error
-	GetUsers() (users []*User)
-	DeleteUser(id int) error
+	GetUsers(filters map[string][]string) ([]*User, error)
+	DeleteUser(id int64) (int64, error)
+}
+
+func hashSaltPassword(pwd string) (*string, error) {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(pwd), 8)
+	if err != nil {
+		return nil, err
+	}
+	result := string(hashedPassword)
+	return &result, nil
 }
