@@ -11,7 +11,7 @@ func TestGetSQLForListAll(t *testing.T) {
 		t.Fatalf("No filters --- SQL generation for get list all is failed")
 	}
 
-	filters["first_name"] = []string{"Roman", "Jan"}
+	filters["first_name"] = []string{"Roman,Jan"}
 	filters["country"] = []string{"Russia"}
 	res, args = getSQLSelect(filters)
 	expected := "SELECT * FROM users WHERE first_name IN (%1, %2) AND country = %3;"

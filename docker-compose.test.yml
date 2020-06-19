@@ -1,0 +1,38 @@
+version: '3'
+services:
+  postgres:
+    image: postgres:12
+    container_name: postgres
+    ports:
+      - '5555:5432'
+    environment:
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: postgres
+    volumes:
+      - database_postgres_test:/var/lib/postgresql/data
+    networks:
+      - user-api-test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 30s
+      retries: 5
+
+  app_test:
+    container_name: user-api-test
+    build:
+      context: .
+      dockerfile: ./Dockerfile.test
+    restart: on-failure
+    depends_on:
+      - postgres
+    networks:
+      - user-api-test
+
+volumes:
+  database_postgres_test:
+
+networks:
+  user-api-test:
+    driver:
+      bridge

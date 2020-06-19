@@ -1,0 +1,160 @@
+basePath: /
+consumes:
+- application/json
+definitions:
+  GenericError:
+    properties:
+      message:
+        type: string
+        x-go-name: Message
+    type: object
+    x-go-package: github.com/shishkebaber/user-api/handlers
+  UpdateUser:
+    properties:
+      country:
+        type: string
+        x-go-name: Country
+      email:
+        type: string
+        x-go-name: Email
+      first_name:
+        type: string
+        x-go-name: FirstName
+      id:
+        format: int64
+        type: integer
+        x-go-name: Id
+      last_name:
+        type: string
+        x-go-name: LastName
+      nickname:
+        type: string
+        x-go-name: Nickname
+    type: object
+    x-go-package: github.com/shishkebaber/user-api/data
+  User:
+    properties:
+      country:
+        type: string
+        x-go-name: Country
+      email:
+        type: string
+        x-go-name: Email
+      first_name:
+        type: string
+        x-go-name: FirstName
+      id:
+        format: int64
+        type: integer
+        x-go-name: Id
+      last_name:
+        type: string
+        x-go-name: LastName
+      nickname:
+        type: string
+        x-go-name: Nickname
+      password:
+        type: string
+        x-go-name: Password
+    type: object
+    x-go-package: github.com/shishkebaber/user-api/data
+  ValidationError:
+    properties:
+      messages:
+        items:
+          type: string
+        type: array
+        x-go-name: Messages
+    type: object
+    x-go-package: github.com/shishkebaber/user-api/handlers
+info:
+  description: Documentation for User API
+  title: Users API.
+  version: 1.0.0
+paths:
+  /users:
+    get:
+      description: Return a list of users from the database, possible filters by fields [first-name, last-name, nickname, email,  country]
+      operationId: listUsers
+      responses:
+        "200":
+          $ref: '#/responses/usersResponse'
+      tags:
+      - users
+    post:
+      description: Add user to DB
+      operationId: addUser
+      parameters:
+      - description: |-
+          User data structure to Create.
+          Note: the id field is ignored by  create operations
+        in: body
+        name: Body
+        required: true
+        schema:
+          $ref: '#/definitions/User'
+      responses:
+        "200":
+          $ref: '#/responses/noContentResponse'
+        "422":
+          $ref: '#/responses/errorValidation'
+        "500":
+          $ref: '#/responses/errorResponse'
+      tags:
+      - users
+    put:
+      description: Update user details
+      operationId: updateUser
+      parameters:
+      - description: |-
+          User data structure to Update.
+          Note: the password field is ignored by  update operations
+        in: body
+        name: Body
+        required: true
+        schema:
+          $ref: '#/definitions/UpdateUser'
+      responses:
+        "201":
+          $ref: '#/responses/noContentResponse'
+        "404":
+          $ref: '#/responses/errorResponse'
+        "422":
+          $ref: '#/responses/errorValidation'
+      tags:
+      - users
+  /users/{id}:
+    delete:
+      description: Delete user from DB
+      operationId: deleteUser
+      responses:
+        "204":
+          $ref: '#/responses/noContentResponse'
+        "404":
+          $ref: '#/responses/errorResponse'
+        "500":
+          $ref: '#/responses/errorResponse'
+      tags:
+      - users
+produces:
+- application/json
+responses:
+  errorResponse:
+    description: Generic error message returned as a string
+    schema:
+      $ref: '#/definitions/GenericError'
+  errorValidation:
+    description: Validation errors defined as an array of strings
+    schema:
+      $ref: '#/definitions/ValidationError'
+  noContentResponse:
+    description: No content is returned by this API endpoint
+  usersResponse:
+    description: List of Users returns in the response
+    schema:
+      items:
+        $ref: '#/definitions/UpdateUser'
+      type: array
+schemes:
+- http
+swagger: "2.0"

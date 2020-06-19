@@ -2,14 +2,22 @@ package data
 
 import (
 	"context"
+	"fmt"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/sirupsen/logrus"
 	"strconv"
+	"strings"
 )
 
 type UserPostgresDb struct {
 	log  *logrus.Logger
 	Pool *pgxpool.Pool
+}
+
+func GenerateURL(user string, password string, host string, port string, name string, l *logrus.Logger) string {
+	result := fmt.Sprintf("postgres://%s:%s@%s%s/%s", user, password, host, port, name)
+	l.Infof("DB URL: %s", result)
+	return result
 }
 
 // Creates new postgresDB object with logger and pool
@@ -42,7 +50,7 @@ func (pdb *UserPostgresDb) AddUser(user User) error {
 	}
 
 	row := conn.QueryRow(context.Background(),
-		"INSERT INTO users (first_name, last_name, nickname, password, email, country) VALUES ($1, $2, $3, $4, $5, %6) RETURNING id",
+		"INSERT INTO users (first_name, last_name, nickname, password, email, country) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
 		user.FirstName, user.LastName, user.Nickname, hashedPassword, user.Email, user.Country)
 
 	var id int64
@@ -56,7 +64,7 @@ func (pdb *UserPostgresDb) AddUser(user User) error {
 }
 
 // Updates User
-func (pdb *UserPostgresDb) UpdateUser(user User) error {
+func (pdb *UserPostgresDb) UpdateUser(user UpdateUser) error {
 	conn, err := pdb.Pool.Acquire(context.Background())
 	if err != nil {
 		pdb.log.Error("Unable to acquire DB connection. \n", err)
@@ -65,7 +73,7 @@ func (pdb *UserPostgresDb) UpdateUser(user User) error {
 	defer conn.Release()
 
 	_, err = conn.Exec(context.Background(),
-		"UPDATE users SET first_name = %2, last_name = %3, nickname = %4, email = %5, country = %6 WHERE id = %1",
+		"UPDATE users SET first_name = $2, last_name = $3, nickname = $4, email = $5, country = $6 WHERE id = $1",
 		user.Id, user.FirstName, user.LastName, user.Nickname, user.Email, user.Country)
 
 	if err != nil {
@@ -77,15 +85,17 @@ func (pdb *UserPostgresDb) UpdateUser(user User) error {
 }
 
 // List Users from DB
-func (pdb *UserPostgresDb) GetUsers(filters map[string][]string) ([]*User, error) {
+func (pdb *UserPostgresDb) GetUsers(filters map[string][]string) ([]*UpdateUser, error) {
 	conn, err := pdb.Pool.Acquire(context.Background())
 	if err != nil {
 		pdb.log.Error("Unable to acquire DB connection. \n", err)
 		return nil, err
 	}
 	defer conn.Release()
-
+	pdb.log.Infof("FILTERS: %v %d", filters, len(filters["first_name"]))
 	sql, args := getSQLSelect(filters)
+
+	pdb.log.Infof("SELECT STATEMENT: %s, %s", sql, args)
 
 	rows, err := conn.Query(context.Background(),
 		sql, args...)
@@ -95,9 +105,9 @@ func (pdb *UserPostgresDb) GetUsers(filters map[string][]string) ([]*User, error
 	}
 	defer rows.Close()
 
-	var result []*User
+	var result []*UpdateUser
 	for rows.Next() {
-		rowUser := &User{}
+		rowUser := &UpdateUser{}
 		err = rows.Scan(&rowUser.Id, &rowUser.FirstName, &rowUser.LastName, &rowUser.Nickname, &rowUser.Email, &rowUser.Country)
 		if err != nil {
 			pdb.log.Error("Unable to scan user. \n", err)
@@ -110,7 +120,7 @@ func (pdb *UserPostgresDb) GetUsers(filters map[string][]string) ([]*User, error
 }
 
 // Remove User from DB
-func (pdb *UserPostgresDb) DeleteUser(id int64) (int64, error) {
+func (pdb *UserPostgresDb) DeleteUser(id int) (int64, error) {
 	conn, err := pdb.Pool.Acquire(context.Background())
 	if err != nil {
 		pdb.log.Error("Unable to acquire DB connection. \n", err)
@@ -119,7 +129,7 @@ func (pdb *UserPostgresDb) DeleteUser(id int64) (int64, error) {
 	defer conn.Release()
 
 	ct, err := conn.Exec(context.Background(),
-		"DELETE FROM users  WHERE id = %1",
+		"DELETE FROM users  WHERE id = $1",
 		id)
 
 	if err != nil {
@@ -133,11 +143,13 @@ func (pdb *UserPostgresDb) DeleteUser(id int64) (int64, error) {
 
 // Function generates SQL and arguments for ListAll request
 func getSQLSelect(filters map[string][]string) (string, []interface{}) {
+	resultSQL := "SELECT id, first_name, last_name, nickname, email, country FROM users"
 	if len(filters) == 0 {
-		return "SELECT * FROM users", []interface{}{}
+		return resultSQL, []interface{}{}
 	}
-	resultSQL := "SELECT * FROM users WHERE "
-	args := make([]interface{}, len(filters))
+
+	resultSQL = resultSQL + " WHERE "
+	args := make([]interface{}, 0)
 	counter := 1
 	lenCounter := 1
 	for k, v := range filters {
@@ -147,23 +159,24 @@ func getSQLSelect(filters map[string][]string) (string, []interface{}) {
 		} else {
 			clause = " AND " + k + " "
 		}
-		if len(v) > 1 {
+		splitedVal := strings.Split(v[0], ",")
+		if len(splitedVal) > 1 {
 			subClause := "IN ("
-			for i, sV := range v {
-				if i == len(v)-1 {
-					subClause += "%" + strconv.Itoa(counter) + ")"
-					args = append(args, sV)
+			for i, sV := range splitedVal {
+				if i == len(splitedVal)-1 {
+					subClause += "$" + strconv.Itoa(counter) + ")"
+					args = append(args, strings.TrimSpace(sV))
 					counter += 1
 					continue
 				}
-				subClause += "%" + strconv.Itoa(counter) + ", "
-				args = append(args, sV)
+				subClause += "$" + strconv.Itoa(counter) + ", "
+				args = append(args, strings.TrimSpace(sV))
 				counter += 1
 			}
 			clause += subClause
 		} else {
-			clause += "= " + "%" + strconv.Itoa(counter)
-			args = append(args, v[0])
+			clause += "= " + "$" + strconv.Itoa(counter)
+			args = append(args, strings.TrimSpace(v[0]))
 			counter += 1
 		}
 		lenCounter += 1

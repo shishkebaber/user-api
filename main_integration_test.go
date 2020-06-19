@@ -5,47 +5,19 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/nicholasjackson/env"
-
 	"github.com/shishkebaber/user-api/data"
 	"github.com/shishkebaber/user-api/server"
-	log "github.com/sirupsen/logrus"
 	"net/http/httptest"
+	"strings"
 
 	"net/http"
 	"testing"
 )
 
-const tableCreationQuery = `CREATE TABLE IF NOT EXISTS users
-(
-    id SERIAL,
-    first-name TEXT NOT NULL,
-    last-name TEXT NOT NULL,
-	nickname TEXT NOT NULL,
-	password TEXT NOT NULL,
-	email TEXT NOT NULL,
-	country TEXT NOT NULL,
-    CONSTRAINT user_pkey PRIMARY KEY (id)
-)`
-
-func clearTable(pgdb *data.UserPostgresDb) {
-	pgdb.Pool.Exec(context.Background(), "DELETE FROM users")
-	pgdb.Pool.Exec(context.Background(), "ALTER SEQUENCE users_id_seq RESTART WITH 1")
-}
-
-func createTable(pgdb *data.UserPostgresDb) {
-	if _, err := pgdb.Pool.Exec(context.Background(), tableCreationQuery); err != nil {
-		log.Fatal(err)
-	}
-}
-
 var s *server.Server
-var bindAddressTest = env.String("BIND_ADDRESS", false, ":9090", "Server bind address")
-var postgresBindAddressTest = env.String("PG_BIND_ADDRESS", false, "", "Server bind address")
 
 func init() {
-	s = server.NewServer(bindAddressTest, postgresBindAddressTest)
-	createTable(s.UserHandlers.Db.(*data.UserPostgresDb))
+	s = server.NewServer()
 }
 
 func executeRequest(req *http.Request) *httptest.ResponseRecorder {
@@ -62,23 +34,23 @@ func checkResponseCode(t *testing.T, expected, actual int) {
 }
 
 func TestEmptyTable(t *testing.T) {
-	clearTable(s.UserHandlers.Db.(*data.UserPostgresDb))
+	data.ClearTable(s.UserHandlers.Db.(*data.UserPostgresDb), s.Logger)
 
 	req, _ := http.NewRequest("GET", "/users", nil)
 	response := executeRequest(req)
 
 	checkResponseCode(t, http.StatusOK, response.Code)
 
-	if body := response.Body.String(); body != "[]" {
+	if body := response.Body.String(); strings.TrimSpace(body) != "null" {
 		t.Errorf("Expected an empty array. Got: %s", body)
 	}
 }
 
 func TestCreateUser(t *testing.T) {
 
-	clearTable(s.UserHandlers.Db.(*data.UserPostgresDb))
+	data.ClearTable(s.UserHandlers.Db.(*data.UserPostgresDb), s.Logger)
 
-	var jsonStr = []byte(`{"first-name":"test user", "last-name":"test lname", "nickname":"tester", "email":"test@test.test". "password":"easy", "country":"testia"}`)
+	var jsonStr = []byte(`{"first_name":"test user", "last_name":"test lname", "nickname":"tester", "email":"test@test.test", "password":"easy", "country":"testia"}`)
 	req, _ := http.NewRequest("POST", "/users", bytes.NewBuffer(jsonStr))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -87,53 +59,47 @@ func TestCreateUser(t *testing.T) {
 }
 
 func TestGetUser(t *testing.T) {
-	clearTable(s.UserHandlers.Db.(*data.UserPostgresDb))
-	args := make([]interface{}, 6)
-	args = append(args, []string{"testname", "testsurn", "testnickname", "testemail", "testpassword", "testcountry"})
-	keys := []string{"first-name", "last-name", "nickname", "email", "country"}
+	data.ClearTable(s.UserHandlers.Db.(*data.UserPostgresDb), s.Logger)
+	keys := []string{"first_name", "last_name", "nickname", "email", "country"}
 	values := []string{"testname", "testsurn", "testnickname", "testemail", "testcountry"}
 
-	_, err := s.UserHandlers.Db.(*data.UserPostgresDb).Pool.Exec(context.Background(), "INSERT INTO users(first-name,last-name,nickname,email,password,country) VALUES($1,$2,$3,$4,$5,$6)",
-		args...)
+	_, err := s.UserHandlers.Db.(*data.UserPostgresDb).Pool.Exec(context.Background(), "INSERT INTO users(first_name,last_name,nickname,email,password,country) VALUES($1,$2,$3,$4,$5,$6)",
+		"testname", "testsurn", "testnickname", "testemail", "testpassword", "testcountry")
 	if err != nil {
-		s.Logger.Error("Unable to insert test data")
+		s.Logger.Error("Unable to insert test data ", err)
 	}
-	req, _ := http.NewRequest("GET", "/users/1", nil)
+	req, _ := http.NewRequest("GET", "/users", nil)
 	req.Header.Set("Content-Type", "application/json")
 
 	response := executeRequest(req)
 
 	checkResponseCode(t, http.StatusOK, response.Code)
 
-	var rM map[string]interface{}
-	json.Unmarshal(response.Body.Bytes(), &rM)
-
-	if len(values) != len(rM) {
-		t.Errorf("Expected an response items count to be equal to fields count. Got: %d", len(rM))
+	var rM []map[string]interface{}
+	err = json.Unmarshal(response.Body.Bytes(), &rM)
+	if err != nil {
+		s.Logger.Error("Unable to unmarshal get result: ", err)
 	}
 
 	for i, v := range keys {
-		if _, ok := rM[v]; !ok {
+		if _, ok := rM[0][v]; !ok {
 			t.Errorf("Expected existance of key %s. ", v)
 		}
-		if rM[v] != values[i] {
-			t.Errorf("Expected value %s. Got: %s", values[i], rM[v])
+		if rM[0][v] != values[i] {
+			t.Errorf("Expected value %s. Got: %s", values[i], rM[0][v])
 		}
 	}
 }
 
 func TestUpdateUser(t *testing.T) {
-	clearTable(s.UserHandlers.Db.(*data.UserPostgresDb))
-	args := make([]interface{}, 6)
-	args = append(args, []string{"testname", "testsurn", "testnickname", "testemail@email.cc", "testpassword", "testcountry"})
-
-	_, err := s.UserHandlers.Db.(*data.UserPostgresDb).Pool.Exec(context.Background(), "INSERT INTO users(first-name,last-name,nickname,email,password,country) VALUES($1,$2,$3,$4,$5,$6)",
-		args...)
+	data.ClearTable(s.UserHandlers.Db.(*data.UserPostgresDb), s.Logger)
+	_, err := s.UserHandlers.Db.(*data.UserPostgresDb).Pool.Exec(context.Background(), "INSERT INTO users(first_name,last_name,nickname,email,password,country) VALUES($1,$2,$3,$4,$5,$6)",
+		"testname", "testsurn", "testnickname", "testemail", "testpassword", "testcountry")
 	if err != nil {
-		s.Logger.Error("Unable to insert test data")
+		s.Logger.Error("Unable to insert test data ", err)
 	}
 
-	var jsonStr = []byte(`{"first-name":"test user", "last-name":"test lname", "nickname":"testonator", "email":"test@test.test", "country":"testia"}`)
+	var jsonStr = []byte(`{"id":1, "first_name":"test user", "last_name":"test lname", "nickname":"testonator", "email":"test@test.test", "country":"testia"}`)
 	req, _ := http.NewRequest("PUT", "/users", bytes.NewBuffer(jsonStr))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -149,10 +115,6 @@ func TestUpdateUser(t *testing.T) {
 	json.Unmarshal(responseGet.Body.Bytes(), &rM)
 	json.Unmarshal(jsonStr, &input)
 
-	if len(input) != len(rM) {
-		t.Errorf("Expected an response items count to be equal to input fields count. Got: %d", len(rM))
-	}
-
 	for k, v := range rM {
 		if _, ok := input[k]; !ok {
 			t.Errorf("Expected existance of key %s. ", k)
@@ -164,15 +126,12 @@ func TestUpdateUser(t *testing.T) {
 }
 
 func TestDeleteUser(t *testing.T) {
-	clearTable(s.UserHandlers.Db.(*data.UserPostgresDb))
+	data.ClearTable(s.UserHandlers.Db.(*data.UserPostgresDb), s.Logger)
 
-	args := make([]interface{}, 6)
-	args = append(args, []string{"testname", "testsurn", "testnickname", "testemail@email.cc", "testpassword", "testcountry"})
-
-	_, err := s.UserHandlers.Db.(*data.UserPostgresDb).Pool.Exec(context.Background(), "INSERT INTO users(first-name,last-name,nickname,email,password,country) VALUES($1,$2,$3,$4,$5,$6)",
-		args...)
+	_, err := s.UserHandlers.Db.(*data.UserPostgresDb).Pool.Exec(context.Background(), "INSERT INTO users(first_name,last_name,nickname,email,password,country) VALUES($1,$2,$3,$4,$5,$6)",
+		"testname", "testsurn", "testnickname", "testemail", "testpassword", "testcountry")
 	if err != nil {
-		s.Logger.Error("Unable to insert test data")
+		s.Logger.Error("Unable to insert test data ", err)
 	}
 
 	req, _ := http.NewRequest("DELETE", "/users/1", nil)
@@ -182,9 +141,12 @@ func TestDeleteUser(t *testing.T) {
 
 	checkResponseCode(t, http.StatusOK, response.Code)
 
-	reqGet, _ := http.NewRequest("GET", "/users/1", nil)
+	reqGet, _ := http.NewRequest("GET", "/users?id=1", nil)
 	reqGet.Header.Set("Content-Type", "application/json")
 	responseGet := executeRequest(reqGet)
 
-	checkResponseCode(t, http.StatusNotFound, responseGet.Code)
+	body := responseGet.Body.String()
+	if strings.TrimSpace(body) != "null" {
+		t.Errorf("Expected an empty array. Got: %s", body)
+	}
 }

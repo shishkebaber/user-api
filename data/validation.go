@@ -38,15 +38,18 @@ func NewValidation() *Validation {
 }
 
 func (v *Validation) Validate(i interface{}) ValidationErrors {
-	errs := v.validate.Struct(i).(validator.ValidationErrors)
-	if len(errs) == 0 {
-		return nil
-	}
-
+	errs := v.validate.Struct(i)
 	var resultErrs ValidationErrors
-	for _, err := range errs {
-		e := ValidationError{err.(validator.FieldError)}
-		resultErrs = append(resultErrs, e)
+	if errs != nil {
+		errs := errs.(validator.ValidationErrors)
+		if len(errs) == 0 {
+			return nil
+		}
+
+		for _, err := range errs {
+			e := ValidationError{err.(validator.FieldError)}
+			resultErrs = append(resultErrs, e)
+		}
 	}
 
 	return resultErrs
