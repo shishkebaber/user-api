@@ -12,7 +12,7 @@ By default API runs on :9090 port. Please use http://localhost:9090/ address for
 By default gRPC server runs on :9092 port
 
 PostgresDB was chosen because of possible future implementation of Users relations, such as friendship or subscription.
-Using pgxpool guarantees thread-safe data operations. 
+Using pgxpool guarantees concurrency-safe data operations. 
 
 We can easily switch to another data base, if needed.
 
