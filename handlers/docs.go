@@ -17,14 +17,14 @@ import "github.com/shishkebaber/user-api/data"
 
 // List of Users returns in the response
 //swagger:response usersResponse
-type usersResponse struct {
+type usersResponseWrapper struct {
 	//All users
 	//In:body
 	Body []data.UpdateUser
 }
 
 // swagger:parameters addUser
-type userCreateParams struct {
+type userCreateParamsWrapper struct {
 	// User data structure to Create.
 	// Note: the id field is ignored by  create operations
 	// in: body
@@ -33,7 +33,7 @@ type userCreateParams struct {
 }
 
 // swagger:parameters updateUser
-type userUpdateCreateParams struct {
+type userUpdateParamsWrapper struct {
 	// User data structure to Update.
 	// Note: the password field is ignored by  update operations
 	// in: body

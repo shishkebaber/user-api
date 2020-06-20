@@ -4,14 +4,16 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/gorilla/mux"
 	"github.com/shishkebaber/user-api/data"
+	protos "github.com/shishkebaber/user-api/protos/user"
 	"github.com/sirupsen/logrus"
 	"net/http"
 )
 
 type Users struct {
-	logger *logrus.Logger
-	Db     data.UserDBI
-	v      *data.Validation
+	logger         *logrus.Logger
+	Db             data.UserDBI
+	v              *data.Validation
+	UserUpdateChan chan *protos.UserData
 }
 
 type UserKey struct{}
@@ -26,13 +28,12 @@ type ValidationError struct {
 	Messages []string `json:"messages"`
 }
 
-func NewUsersHandler(l *logrus.Logger, dbi data.UserDBI, v *data.Validation) *Users {
-	return &Users{l, dbi, v}
+func NewUsersHandler(l *logrus.Logger, dbi data.UserDBI, v *data.Validation, userUpdateChan chan *protos.UserData) *Users {
+	return &Users{l, dbi, v, userUpdateChan}
 }
 
 func InitHandlers(usersHandlers *Users) *mux.Router {
 	router := mux.NewRouter().StrictSlash(true)
-	//var api1 = router.PathPrefix("/v1").Subrouter()
 
 	getR := router.Methods(http.MethodGet).Subrouter()
 	getR.HandleFunc("/users", usersHandlers.ListAll)

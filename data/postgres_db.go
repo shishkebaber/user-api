@@ -20,7 +20,7 @@ func GenerateURL(user string, password string, host string, port string, name st
 	return result
 }
 
-// Creates new postgresDB object with logger and pool
+// Creates new postgresDB  with logger and pool
 func NewPgDb(logger *logrus.Logger, dbUrl string) *UserPostgresDb {
 	pool, err := pgxpool.Connect(context.Background(), dbUrl)
 	if err != nil {
@@ -92,7 +92,7 @@ func (pdb *UserPostgresDb) GetUsers(filters map[string][]string) ([]*UpdateUser,
 		return nil, err
 	}
 	defer conn.Release()
-	pdb.log.Infof("FILTERS: %v %d", filters, len(filters["first_name"]))
+
 	sql, args := getSQLSelect(filters)
 
 	pdb.log.Infof("SELECT STATEMENT: %s, %s", sql, args)
@@ -141,7 +141,7 @@ func (pdb *UserPostgresDb) DeleteUser(id int) (int64, error) {
 	return ct.RowsAffected(), nil
 }
 
-// Function generates SQL and arguments for ListAll request
+// Function generates SQL and arguments
 func getSQLSelect(filters map[string][]string) (string, []interface{}) {
 	resultSQL := "SELECT id, first_name, last_name, nickname, email, country FROM users"
 	if len(filters) == 0 {

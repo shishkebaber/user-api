@@ -3,7 +3,7 @@ package data
 import "golang.org/x/crypto/bcrypt"
 
 type User struct {
-	Id        int    `json:"id"`
+	Id        int    `json:"-"`
 	FirstName string `json:"first_name" validate:"required"`
 	LastName  string `json:"last_name" validate:"required"`
 	Nickname  string `json:"nickname" validate:"required"`

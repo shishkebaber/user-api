@@ -33,6 +33,14 @@ func checkResponseCode(t *testing.T, expected, actual int) {
 	}
 }
 
+func createData() {
+	_, err := s.UserHandlers.Db.(*data.UserPostgresDb).Pool.Exec(context.Background(), "INSERT INTO users(first_name,last_name,nickname,email,password,country) VALUES($1,$2,$3,$4,$5,$6)",
+		"testname", "testsurn", "testnickname", "testemail", "testpassword", "testcountry")
+	if err != nil {
+		s.Logger.Error("Unable to insert test data ", err)
+	}
+}
+
 func TestEmptyTable(t *testing.T) {
 	data.ClearTable(s.UserHandlers.Db.(*data.UserPostgresDb), s.Logger)
 
@@ -63,11 +71,8 @@ func TestGetUser(t *testing.T) {
 	keys := []string{"first_name", "last_name", "nickname", "email", "country"}
 	values := []string{"testname", "testsurn", "testnickname", "testemail", "testcountry"}
 
-	_, err := s.UserHandlers.Db.(*data.UserPostgresDb).Pool.Exec(context.Background(), "INSERT INTO users(first_name,last_name,nickname,email,password,country) VALUES($1,$2,$3,$4,$5,$6)",
-		"testname", "testsurn", "testnickname", "testemail", "testpassword", "testcountry")
-	if err != nil {
-		s.Logger.Error("Unable to insert test data ", err)
-	}
+	createData()
+
 	req, _ := http.NewRequest("GET", "/users", nil)
 	req.Header.Set("Content-Type", "application/json")
 
@@ -76,7 +81,7 @@ func TestGetUser(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, response.Code)
 
 	var rM []map[string]interface{}
-	err = json.Unmarshal(response.Body.Bytes(), &rM)
+	err := json.Unmarshal(response.Body.Bytes(), &rM)
 	if err != nil {
 		s.Logger.Error("Unable to unmarshal get result: ", err)
 	}
@@ -93,11 +98,7 @@ func TestGetUser(t *testing.T) {
 
 func TestUpdateUser(t *testing.T) {
 	data.ClearTable(s.UserHandlers.Db.(*data.UserPostgresDb), s.Logger)
-	_, err := s.UserHandlers.Db.(*data.UserPostgresDb).Pool.Exec(context.Background(), "INSERT INTO users(first_name,last_name,nickname,email,password,country) VALUES($1,$2,$3,$4,$5,$6)",
-		"testname", "testsurn", "testnickname", "testemail", "testpassword", "testcountry")
-	if err != nil {
-		s.Logger.Error("Unable to insert test data ", err)
-	}
+	createData()
 
 	var jsonStr = []byte(`{"id":1, "first_name":"test user", "last_name":"test lname", "nickname":"testonator", "email":"test@test.test", "country":"testia"}`)
 	req, _ := http.NewRequest("PUT", "/users", bytes.NewBuffer(jsonStr))
@@ -128,11 +129,7 @@ func TestUpdateUser(t *testing.T) {
 func TestDeleteUser(t *testing.T) {
 	data.ClearTable(s.UserHandlers.Db.(*data.UserPostgresDb), s.Logger)
 
-	_, err := s.UserHandlers.Db.(*data.UserPostgresDb).Pool.Exec(context.Background(), "INSERT INTO users(first_name,last_name,nickname,email,password,country) VALUES($1,$2,$3,$4,$5,$6)",
-		"testname", "testsurn", "testnickname", "testemail", "testpassword", "testcountry")
-	if err != nil {
-		s.Logger.Error("Unable to insert test data ", err)
-	}
+	createData()
 
 	req, _ := http.NewRequest("DELETE", "/users/1", nil)
 	req.Header.Set("Content-Type", "application/json")

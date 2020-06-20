@@ -1,4 +1,4 @@
-version: '3'
+version: '2.1'
 services:
   postgres:
     image: postgres:12
@@ -9,26 +9,25 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: postgres
     volumes:
-      - ./db.sql:/docker-entrypoint-initdb.d/db.sql
       - database_postgres:/var/lib/postgresql/data
     networks:
       - user-api
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 30s
+      interval: 10s
       timeout: 30s
       retries: 5
 
   app:
     container_name: user-api
     build: .
-    environment:
-      - BIND_ADDRESS=:9090
     ports:
       - 9090:9090
+      - 9092:9092
     restart: on-failure
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - user-api
 

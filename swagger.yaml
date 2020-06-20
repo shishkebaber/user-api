@@ -43,10 +43,6 @@ definitions:
       first_name:
         type: string
         x-go-name: FirstName
-      id:
-        format: int64
-        type: integer
-        x-go-name: Id
       last_name:
         type: string
         x-go-name: LastName
@@ -94,7 +90,7 @@ paths:
         schema:
           $ref: '#/definitions/User'
       responses:
-        "200":
+        "201":
           $ref: '#/responses/noContentResponse'
         "422":
           $ref: '#/responses/errorValidation'
@@ -128,7 +124,7 @@ paths:
       description: Delete user from DB
       operationId: deleteUser
       responses:
-        "204":
+        "200":
           $ref: '#/responses/noContentResponse'
         "404":
           $ref: '#/responses/errorResponse'
