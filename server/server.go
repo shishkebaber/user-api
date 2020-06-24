@@ -77,7 +77,7 @@ func (s *Server) Start(exitChan chan struct{}) {
 	}
 
 	sig := <-exitChan
-	log.Println("Got signal: ", sig)
+	s.Logger.Println("Got signal: ", sig)
 
 	s.UserHandlers.Db.(*data.UserPostgresDb).Pool.Close()
 	s.Logger.Info("Server stopping")
